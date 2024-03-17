@@ -33,7 +33,8 @@ if __name__ == '__main__':
         shot_info['shot'] = shot
         shot_info['duration'] = lables['DownTime'] - lables['StartTime']
         duration_info = duration_info.append(shot_info, ignore_index=True)
-        if shot_info['duration'] > 0.05:  # the duration of each shot should more than 50 ms
+        # the duration of each shot should more than 50 ms and no intentional disruption
+        if shot_info['duration'] > 0.05 and lables['Intentional_Disrupt'] == False:
             valid_shots.append(shot)
     # plot it
     plt.figure()
@@ -85,7 +86,7 @@ if __name__ == '__main__':
     result_df = shots_data.describe()
     result_df.to_csv('..//file_repo//info//std_info//result_statistics.csv', index=True)
 
-    #%%
+    # %%
     # plot the hist of each signal
     for tag in tag_list:
         plt.figure()
