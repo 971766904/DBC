@@ -20,7 +20,7 @@ from sklearn.model_selection import train_test_split
 import json
 
 
-def tq_time_cal(shot, downtime):
+def cq_time_cal(shot, downtime):
     ip_data, ip_time = read_data_from_tree(shot, r'\ip')
 
     ip_df = pd.DataFrame(columns=['ip', 'time'])
@@ -31,7 +31,8 @@ def tq_time_cal(shot, downtime):
     pre_dis_ip_mean = pre_dis['ip'].mean()
     tq_cal_range = tq_data.loc[(pre_dis_ip_mean * 0.8 > tq_data['ip']) & (tq_data['ip'] > pre_dis_ip_mean * 0.2)]
     tq_time = tq_cal_range.iloc[-1]['time'] - tq_cal_range.iloc[0]['time']
-    return tq_time
+    cq_rate = pre_dis_ip_mean * 0.6 / tq_time
+    return tq_time, cq_rate
 
 
 if __name__ == '__main__':
@@ -43,9 +44,10 @@ if __name__ == '__main__':
 
     # %%
     # read data & get info as numpy or dataframe
-    # is disruption, ip, bt, Pin, Prad, duration, TQ rate(disruption only)
+    # is disruption, ip, bt, Pin, Prad, duration, CQ rate(disruption only)
     shots_info = pd.DataFrame(
-        columns=['shot', 'IsDisrupt', 'Intentional_Disrupt', 'duration', 'TQ_time', 'ip', 'bt', 'p'])
+        columns=['shot', 'IsDisrupt', 'Intentional_Disrupt', 'duration',
+                 'CQ_time', 'CQ_rate', 'ip', 'bt', 'p'])
     for shot in valid_shots:
         shot_info = {'shot': shot}
         lables = source_file_repo.read_labels(
@@ -58,36 +60,37 @@ if __name__ == '__main__':
         shot_info['bt'] = np.mean(data_raw['bt'])
         shot_info['duration'] = lables['DownTime'] - lables['StartTime']
         if lables['IsDisrupt']:
-            shot_info['TQ_time'] = tq_time_cal(shot, lables['DownTime'])
+            shot_info['CQ_time'], shot_info['CQ_rate'] = cq_time_cal(shot, lables['DownTime'])
         else:
-            shot_info['TQ_time'] = 0
+            shot_info['CQ_time'] = 0
+            shot_info['CQ_rate'] = 0
         shots_info = shots_info.append(shot_info, ignore_index=True)
     sta_des = shots_info.describe()
     sta_des.to_csv('..//file_repo//info//std_info//des_statistics_tq.csv', index=True)
-    dis_shot = shots_info.loc[(shots_info['IsDisrupt']==True)]
-    dis_shot['TQ_time'] = dis_shot['TQ_time'].astype(float)
+    dis_shot = shots_info.loc[(shots_info['IsDisrupt'] == True)]
+    dis_shot['CQ_time'] = dis_shot['CQ_time'].astype(float)
     dis_des = dis_shot.describe()
     dis_des.to_csv('..//file_repo//info//std_info//disruption_statistics_tq.csv', index=True)
     shots_info.to_csv('..//file_repo//info//std_info//shots_info.csv', index=False)
     print(len(shots_info))
     # dis_shots.to_csv('..//file_repo//info//info.csv')
 
-    # %%
-    # plot it
-    plt.figure()
-    shots_info['ip'].plot.hist()
-    plt.xlabel('ip/kA')
-    plt.tight_layout()
-    # plt.savefig('..//file_repo//info//ip.png')
-
-    plt.figure()
-    shots_info['bt'].plot.hist()
-    plt.xlabel('bt/T')
-    plt.tight_layout()
-    # plt.savefig('..//file_repo//info//bt.png')
-
-    plt.figure()
-    shots_info['p'].plot.hist()
-    plt.xlabel('p/kW')
-    plt.tight_layout()
-    # plt.savefig('..//file_repo//info//p.png')
+    # # %%
+    # # plot it
+    # plt.figure()
+    # shots_info['ip'].plot.hist()
+    # plt.xlabel('ip/kA')
+    # plt.tight_layout()
+    # # plt.savefig('..//file_repo//info//ip.png')
+    #
+    # plt.figure()
+    # shots_info['bt'].plot.hist()
+    # plt.xlabel('bt/T')
+    # plt.tight_layout()
+    # # plt.savefig('..//file_repo//info//bt.png')
+    #
+    # plt.figure()
+    # shots_info['p'].plot.hist()
+    # plt.xlabel('p/kW')
+    # plt.tight_layout()
+    # # plt.savefig('..//file_repo//info//p.png')

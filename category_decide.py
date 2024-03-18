@@ -17,6 +17,7 @@ from util.read_data import read_data_from_tree
 if __name__ == '__main__':
     # %%
     # load file
+    source_file_repo = FileRepo('H://rt//itu//FileRepo//processed_data_1k_5k_final//$shot_2$00//')
     valid_shots = np.load('..//file_repo//info//std_info//used_shots.npy')
     shots_info = pd.read_csv('..//file_repo//info//std_info//shots_info.csv')
 
@@ -40,3 +41,9 @@ if __name__ == '__main__':
     cate_4 = cate_2_left.loc[~((cate_2_left['ip'] >= 149.935)
                                & (cate_2_left['bt'] >= 1.691232)
                                & (cate_2_left['p'] >= 238.4405))]
+
+    # %%
+    # add category to hdf5 file by adding a meta data
+    shots_1 = cate_1['shot']
+    for shot in shots_1:
+        source_file_repo.write_label(shot, {'category': 1})
