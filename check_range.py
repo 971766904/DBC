@@ -69,6 +69,7 @@ if __name__ == '__main__':
     sta_des.to_csv('..//file_repo//info//std_info//des_statistics_tq.csv', index=True)
     dis_shot = shots_info.loc[(shots_info['IsDisrupt'] == True)]
     dis_shot['CQ_time'] = dis_shot['CQ_time'].astype(float)
+    dis_shot['CQ_rate'] = dis_shot['CQ_rate'].astype(float)
     dis_des = dis_shot.describe()
     dis_des.to_csv('..//file_repo//info//std_info//disruption_statistics_tq.csv', index=True)
     shots_info.to_csv('..//file_repo//info//std_info//shots_info.csv', index=False)
