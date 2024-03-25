@@ -64,7 +64,7 @@ def get_shot_result(y_pred, threshold_sample):
     """
     binary_result = 1 * (y_pred >= threshold_sample)
     for k in range(len(binary_result) - 2):
-        if np.sum(binary_result[k:k + 3]) == 3:
+        if np.sum(binary_result[k:k + 5]) == 5:
             predicted_dis = 1
             break
         else:
@@ -72,33 +72,37 @@ def get_shot_result(y_pred, threshold_sample):
     return predicted_dis
 
 
-
 if __name__ == '__main__':
-
+    # %%
+    # load file
     test_file_repo = FileRepo(
-        "..//FileRepo//train_file//$shot_2$00//")
+        '..//..//file_repo//data_file//processed_data_1k_5k_label//$shot_2$00//')
+    training_shots = np.load('..//..//file_repo//info//dataset//training_shots.npy')
+    valid_shots = np.load('..//..//file_repo//info//dataset//valid_shots.npy')
+    test_shots = np.load('..//..//file_repo//info//dataset//test_shots.npy')
     test_shot_list = test_file_repo.get_all_shots()
     print(len(test_shot_list))
     tag_list = test_file_repo.get_tag_list(test_shot_list[0])
-    # disruption tag for dataset split
-    is_disrupt = []
-    for shot in test_shot_list:
-        dis_label = test_file_repo.read_labels(shot, ['IsDisrupt'])
-        is_disrupt.append(dis_label['IsDisrupt'])
-
-    # %% build model specific data
-    # train test split on shot not sample according to whether shots are disruption
-    # set test_size=0.5 to get 50% shots as test set
-    train_shots, test_shots, _, _ = \
-        train_test_split(test_shot_list, is_disrupt, test_size=0.2,
-                         random_state=1, shuffle=True, stratify=is_disrupt)
+    # # disruption tag for dataset split
+    # is_disrupt = []
+    # for shot in test_shot_list:
+    #     dis_label = test_file_repo.read_labels(shot, ['IsDisrupt'])
+    #     is_disrupt.append(dis_label['IsDisrupt'])
+    #
+    # # %% build model specific data
+    # # train test split on shot not sample according to whether shots are disruption
+    # # set test_size=0.5 to get 50% shots as test set
+    # train_shots, test_shots, _, _ = \
+    #     train_test_split(test_shot_list, is_disrupt, test_size=0.2,
+    #                      random_state=1, shuffle=True, stratify=is_disrupt)
 
     # # create x and y matrix for ML models
-    # # %%
-    X_train, y_train = matrix_build(train_shots, test_file_repo, tag_list)
+    # %%
+    X_train, y_train = matrix_build(training_shots, test_file_repo, tag_list)
     X_test, y_test = matrix_build(test_shots, test_file_repo, tag_list)
+    X_valid, y_valid = matrix_build(valid_shots, test_file_repo, tag_list)
     lgb_train = lgb.Dataset(X_train, y_train)  # create dataset for LightGBM
-    lgb_val = lgb.Dataset(X_test, y_test)  # create dataset for LightGBM
+    lgb_val = lgb.Dataset(X_valid, y_valid)  # create dataset for LightGBM
 
     # %% use LightGBM to train a model.
     # hyperparameters
@@ -106,7 +110,6 @@ if __name__ == '__main__':
         'boosting_type': 'gbdt',
         'objective': 'binary',
         'metric': {'auc'},
-
         'is_unbalance': True
 
     }
@@ -124,7 +127,7 @@ if __name__ == '__main__':
     # generate predictions for each shot
     shot_nos = test_shots  # shot list
     shots_pred_disrurption = []  # shot predict result
-    shots_true_disruption = [ ]  # shot true disruption label
+    shots_true_disruption = []  # shot true disruption label
     shots_pred_disruption_time = []  # shot predict time
     for shot in test_shots:
         true_disruption = 0 if test_file_repo.read_labels(shot)["IsDisrupt"] == False else 1
@@ -137,11 +140,22 @@ if __name__ == '__main__':
         # using the sample reulst to predict disruption on shot
         predicted_disruption = get_shot_result(y_pred, .5)  # get shot result by a threshold
         shots_pred_disrurption.append(predicted_disruption)
+        if not (true_disruption == predicted_disruption):
+            t_start = test_file_repo.read_labels(shot, ['StartTime'])
+            t = t_start['StartTime'] + np.arange(y_pred.shape[0]) * 0.001
+            plt.figure()
+            ax1 = plt.subplot(111)
+            ax1.plot(t, y_pred, 'r')
+            # ax2 = ax1.twinx()
+            # ax2.plot(t, X[:, 21])
+            plt.title('true:{}'.format(true_disruption))
+            plt.savefig('./_temp_fig/{}.png'.format(shot))
+            plt.close()
 
-    # add predictions for each shot to the result dataframe
-    pred_result = pd.DataFrame({'Shot': shot_nos,
-                                'shot_pred': shots_pred_disrurption})
-    pred_result.to_csv(r'..\_temp_test\test_result.csv')
+    # # add predictions for each shot to the result dataframe
+    # pred_result = pd.DataFrame({'Shot': shot_nos,
+    #                             'shot_pred': shots_pred_disrurption})
+    # pred_result.to_csv(r'..\_temp_test\test_result.csv')
 
     # %% plot some of the result: confusion matrix
     matrix = confusion_matrix(shots_true_disruption, shots_pred_disrurption)
@@ -151,4 +165,3 @@ if __name__ == '__main__':
     plt.title("Confusion Matrix")
     # plt.savefig(os.path.join('..//_temp_test//', 'Confusion Matrix.png'), dpi=300)
     plt.show()
-
