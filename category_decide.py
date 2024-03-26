@@ -20,6 +20,7 @@ if __name__ == '__main__':
     source_file_repo = FileRepo('H://rt//itu//FileRepo//processed_data_1k_5k_final//$shot_2$00//')
     valid_shots = np.load('..//file_repo//info//std_info//used_shots.npy')
     shots_info = pd.read_csv('..//file_repo//info//std_info//shots_info.csv')
+    # the column 'IsDisrupt' is object, which should be mapped to bool
     shots_info['IsDisrupt'] = shots_info['IsDisrupt'].map({'True': True, '1': True, 'False': False})
 
     # %%
