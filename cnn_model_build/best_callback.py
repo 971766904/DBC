@@ -1,19 +1,47 @@
 #!/usr/bin/env python
 # encoding: utf-8
 '''
-# @Time    : 2023/11/13 12:18
+# @Time    : 2024/4/9 16:32
 # @Author  : zhongyu
 # @Site    : 
-# @File    : train_cnn.py
+# @File    : best_callback.py
 
 '''
 # %%
 import tensorflow as tf
 from util.parse_tfrecord_pxuvbasic import parse_tfrecord
 from lstm import CNN_LSTM, ConvLSTM1d
-from cnn import CNN
+from cnn import CNN, CNN1
 from keras.callbacks import EarlyStopping
 from tensorflow import keras
+import matplotlib.pyplot as plt
+import os
+
+
+def training_fig(history):
+    # Plot training & validation accuracy values
+    plt.figure(figsize=(12, 4))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['auc'])
+    plt.plot(history.history['val_auc'])
+    plt.title('Model AUC')
+    plt.ylabel('AUC')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+
+    # Plot training & validation loss values
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
 
 # %%
 
@@ -23,16 +51,13 @@ if __name__ == '__main__':
     # %%
     # load tfrecord
     BATCH_SIZE = 1024 * 2
+    dbc_data_dir = '..//..//file_repo//data_file//processed_data_cnn//all_mix'
+    model_path = './best_model_all_mix'
     train_files = tf.data.Dataset.list_files(
-        '..//..//file_repo//data_file//processed_data_cnn//tfrecord/train/*.tfrecord')
-    val_files = tf.data.Dataset.list_files('..//..//file_repo//data_file//processed_data_cnn//tfrecord/val/*.tfrecord')
+        os.path.join(dbc_data_dir, 'tfrecord/train/*.tfrecord'))
+    val_files = tf.data.Dataset.list_files(
+        os.path.join(dbc_data_dir, 'tfrecord/val/*.tfrecord'))
 
-    # explain the function of following code
-    # interleave: Maps map_func across this dataset, and interleaves the results.
-    # cycle_length: The number of input elements that will be processed concurrently.
-    # num_parallel_calls: The number of elements to process in parallel.
-    # map: Maps map_func across the elements of this dataset.
-    # how to split the input and output of the parse_tfrecord function when map it to train_ds and val_ds
     #
     train_ds = train_files.interleave(tf.data.TFRecordDataset, cycle_length=tf.data.AUTOTUNE). \
         map(parse_tfrecord, num_parallel_calls=tf.data.AUTOTUNE)
@@ -43,28 +68,34 @@ if __name__ == '__main__':
     val_ds = val_ds.batch(BATCH_SIZE).prefetch(BATCH_SIZE).cache()
     # %%
     # training
-    model = CNN()
-    early_stopping = EarlyStopping(monitor='val_auc', patience=10, verbose=2)
+    model = CNN1()
 
+    from keras.callbacks import ModelCheckpoint
+
+    # Define the early stopping callback
+    early_stopping = EarlyStopping(monitor='val_auc', patience=20, verbose=2)
+
+    # Define the model checkpoint callback
+    # This will save the entire model to the directory specified in `filepath`
+    model_checkpoint = ModelCheckpoint(filepath=model_path, monitor='val_auc',
+                                       verbose=1, save_best_only=True, mode='max', save_weights_only=False)
+
+    # Compile the model
     model.compile(optimizer=keras.optimizers.Adam(lr=0.001),
                   loss=tf.keras.losses.BinaryCrossentropy(),
                   metrics=[keras.metrics.AUC(name='auc')])
 
-    # history = model.fit(train, batch_size=20, epochs=10, callbacks=[early_stopping], validation_data=val)
+    # Fit the model
     history = model.fit(train_ds, batch_size=BATCH_SIZE, epochs=100,
-                        validation_data=val_ds)
-    model.compile()
-    model.summary()
-    # val = val.batch(200)
-    prediction = model.predict(val_ds)
-    # %%
-    # # save model
-    # model.save('./et1_lstm_tfrecord')
+                        validation_data=val_ds, callbacks=[early_stopping, model_checkpoint])
+    training_fig(history)
 
-    #%%
+    # %%
     # assess the model
     # Predict the train_inputs using the model
     import numpy as np
+
+    model = tf.keras.models.load_model(model_path)
 
     train_ds_s = val_ds.map(lambda x, y: (x, y))
     train_inputs = train_ds_s.map(lambda x, y: x)

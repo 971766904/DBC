@@ -39,13 +39,7 @@ class CNN(tf.keras.Model):
         self.pool1 = tf.keras.layers.MaxPool1D(pool_size=2, strides=2)
         self.pool2 = tf.keras.layers.MaxPool1D(pool_size=2, strides=2)
         self.gapool = tf.keras.layers.GlobalAveragePooling1D()
-        self.flatten = TimeDistributed(tf.keras.layers.Flatten())
-
-        self.lstm = tf.keras.layers.LSTM(128)
-
         self.dense1 = tf.keras.layers.Dense(units=128, activation=tf.nn.relu)
-        self.dense2 = layers.Dense(64, activation='relu')
-
         self.drop = tf.keras.layers.Dropout(0.5)
         self.dense3 = tf.keras.layers.Dense(units=1, activation='sigmoid')
 
@@ -74,3 +68,38 @@ class CNN(tf.keras.Model):
         output = self.dense3(x)  # [batch_size, 1]
 
         return output
+
+class CNN1(tf.keras.Model):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = tf.keras.layers.Conv1D(
+            filters=64,  # 卷积层神经元（卷积核）数目
+            kernel_size=3,  # 感受野大小
+            padding='valid',  # padding策略（vaild 或 same）
+            activation=tf.nn.relu,  # 激活函数
+        )
+
+        self.gapool = tf.keras.layers.GlobalAveragePooling1D()
+        self.dense1 = tf.keras.layers.Dense(units=128, activation=tf.nn.relu)
+        self.drop = tf.keras.layers.Dropout(0.5)
+        self.dense3 = tf.keras.layers.Dense(units=1, activation='sigmoid')
+
+    @tf.function
+    def call(self, inputs):
+        conv_inputs = inputs["input_1"]
+        # c0 = layers.Reshape(target_shape=(conv_inputs.shape[1], 71, 1))(conv_inputs)
+        # print(c0.shape)
+        # l0 = layers.Reshape(target_shape=(basic_inputs.shape[1]))(basic_inputs)
+        c = self.conv1(conv_inputs)
+        print(c.shape)
+
+        c = self.gapool(c)
+        print(c.shape)
+
+        x = self.dense1(c)  # [batch_size, 1024]
+
+        x = self.drop(x)
+        output = self.dense3(x)  # [batch_size, 1]
+
+        return output
+

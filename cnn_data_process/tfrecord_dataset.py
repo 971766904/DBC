@@ -11,6 +11,7 @@ import os
 import h5py
 import tensorflow as tf
 
+
 def sample_generator(file_paths):
     while True:
         try:
@@ -31,10 +32,12 @@ def sample_generator(file_paths):
         except Exception as e:
             print(f'current file: {current_file}\nException: {e}')
 
-def create_tfrecord_writer(file_counter):
+
+def create_tfrecord_writer(file_counter, output_dir):
     tfrecord_path = os.path.join(output_dir, f'batch_{file_counter}.tfrecord')
     writer = tf.io.TFRecordWriter(tfrecord_path)
     return writer
+
 
 if __name__ == '__main__':
     dbc_data_dir = '..//..//file_repo//data_file//processed_data_cnn'
@@ -50,7 +53,7 @@ if __name__ == '__main__':
 
         file_counter = 1
         sample_counter = 0
-        writer = create_tfrecord_writer(file_counter)
+        writer = create_tfrecord_writer(file_counter, output_dir)
         for sample in sample_gen:
             feature_dict = dict()
 
