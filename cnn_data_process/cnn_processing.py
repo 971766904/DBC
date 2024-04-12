@@ -11,7 +11,7 @@ from jddb.file_repo import FileRepo
 import pandas as pd
 from jddb.processor import ShotSet
 from jddb.processor.basic_processors import NormalizationProcessor, TrimProcessor
-from util.basic_processor import find_tags, read_config, SliceProcessor, StackProcessor,OldSliceProcessor
+from util.basic_processor import find_tags, read_config, SliceProcessor, StackProcessor, OldSliceProcessor
 import json
 import os
 
@@ -33,65 +33,64 @@ if __name__ == '__main__':
                   'qa_proxy', 'radiation_proxy', 'rotating_mode_proxy']
     target_tags = basic_tags + tags_sxr + tags_axuv
 
-    # # %%
-    # processed_shotset = source_shotset.remove_signal(tags=target_tags, keep=True,
-    #                                                  save_repo=train_file_repo)
-    #
-    # # %%
-    # # 1. normalize data
-    # # basic signal
-    # normalization_param = read_config('config/normalization_params.json')
-    # for tag in basic_tags:
-    #     mean = normalization_param[tag][0]
-    #     std = normalization_param[tag][1]
-    #     processed_shotset = processed_shotset.process(
-    #         processor=NormalizationProcessor(mean=mean, std=std),
-    #         input_tags=[tag],
-    #         output_tags=[tag],
-    #         save_repo=train_file_repo,
-    #         processes=10)
-    # # sxr array
-    # mean = normalization_param['sxr'][0]
-    # std = normalization_param['sxr'][1]
-    # for tag in tags_sxr:
-    #     processed_shotset = processed_shotset.process(
-    #         processor=NormalizationProcessor(mean=mean, std=std),
-    #         input_tags=[tag],
-    #         output_tags=[tag],
-    #         save_repo=train_file_repo,
-    #         processes=10)
-    # # AXUV array
-    # mean = normalization_param['AXUV'][0]
-    # std = normalization_param['AXUV'][1]
-    # for tag in tags_axuv:
-    #     processed_shotset = processed_shotset.process(
-    #         processor=NormalizationProcessor(mean=mean, std=std),
-    #         input_tags=[tag],
-    #         output_tags=[tag],
-    #         save_repo=train_file_repo,
-    #         processes=10)
-    #
-    # # %%
-    # # 2. slice data
-    # print('slice...')
-    # processed_shotset = ShotSet(train_file_repo, shots_list)
-    # processed_shotset = processed_shotset.process(
-    #     TrimProcessor(),
-    #     input_tags=[target_tags],
-    #     output_tags=[target_tags],
-    #     save_repo=FileRepo(os.path.join(dbc_data_dir, 'trim//$shot_2$00//')),
-    #     processes=10)
-    # # os.makedirs(os.path.join(dbc_data_dir, 'slice'), exist_ok=True)
-    #
-    #
-    # # %%
-    # # 3. trim data
-    # processed_shotset = processed_shotset.process(
-    #     processor=StackProcessor(),
-    #     input_tags=[target_tags],
-    #     output_tags=['stacked_data'],
-    #     save_repo=FileRepo(os.path.join(dbc_data_dir, 'stack//$shot_2$00//')),
-    #     processes=10)
+    # %%
+    processed_shotset = source_shotset.remove_signal(tags=target_tags, keep=True,
+                                                     save_repo=train_file_repo)
+
+    # %%
+    # 1. normalize data
+    # basic signal
+    normalization_param = read_config('config/normalization_params.json')
+    for tag in basic_tags:
+        mean = normalization_param[tag][0]
+        std = normalization_param[tag][1]
+        processed_shotset = processed_shotset.process(
+            processor=NormalizationProcessor(mean=mean, std=std),
+            input_tags=[tag],
+            output_tags=[tag],
+            save_repo=train_file_repo,
+            processes=10)
+    # sxr array
+    mean = normalization_param['sxr'][0]
+    std = normalization_param['sxr'][1]
+    for tag in tags_sxr:
+        processed_shotset = processed_shotset.process(
+            processor=NormalizationProcessor(mean=mean, std=std),
+            input_tags=[tag],
+            output_tags=[tag],
+            save_repo=train_file_repo,
+            processes=10)
+    # AXUV array
+    mean = normalization_param['AXUV'][0]
+    std = normalization_param['AXUV'][1]
+    for tag in tags_axuv:
+        processed_shotset = processed_shotset.process(
+            processor=NormalizationProcessor(mean=mean, std=std),
+            input_tags=[tag],
+            output_tags=[tag],
+            save_repo=train_file_repo,
+            processes=10)
+
+    # %%
+    # 2. slice data
+    print('slice...')
+    processed_shotset = ShotSet(train_file_repo, shots_list)
+    processed_shotset = processed_shotset.process(
+        TrimProcessor(),
+        input_tags=[target_tags],
+        output_tags=[target_tags],
+        save_repo=FileRepo(os.path.join(dbc_data_dir, 'trim//$shot_2$00//')),
+        processes=10)
+    # os.makedirs(os.path.join(dbc_data_dir, 'slice'), exist_ok=True)
+
+    # %%
+    # 3. trim data
+    processed_shotset = processed_shotset.process(
+        processor=StackProcessor(),
+        input_tags=[target_tags],
+        output_tags=['stacked_data'],
+        save_repo=FileRepo(os.path.join(dbc_data_dir, 'stack//$shot_2$00//')),
+        processes=10)
 
     # %%
     # 4. stack features to matrix

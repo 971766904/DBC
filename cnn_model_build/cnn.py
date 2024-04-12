@@ -69,6 +69,7 @@ class CNN(tf.keras.Model):
 
         return output
 
+
 class CNN1(tf.keras.Model):
     def __init__(self):
         super().__init__()
@@ -79,7 +80,8 @@ class CNN1(tf.keras.Model):
             activation=tf.nn.relu,  # 激活函数
         )
 
-        self.gapool = tf.keras.layers.GlobalAveragePooling1D()
+        self.pool1 = tf.keras.layers.MaxPool1D(pool_size=2, strides=2)
+        self.flatten = tf.keras.layers.Flatten()
         self.dense1 = tf.keras.layers.Dense(units=128, activation=tf.nn.relu)
         self.drop = tf.keras.layers.Dropout(0.5)
         self.dense3 = tf.keras.layers.Dense(units=1, activation='sigmoid')
@@ -93,7 +95,8 @@ class CNN1(tf.keras.Model):
         c = self.conv1(conv_inputs)
         print(c.shape)
 
-        c = self.gapool(c)
+        c = self.pool1(c)
+        c = self.flatten(c)
         print(c.shape)
 
         x = self.dense1(c)  # [batch_size, 1024]
@@ -102,4 +105,3 @@ class CNN1(tf.keras.Model):
         output = self.dense3(x)  # [batch_size, 1]
 
         return output
-

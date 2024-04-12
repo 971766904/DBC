@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     model = tf.keras.models.load_model(model_path)
 
-    train_ds_s = val_ds.map(lambda x, y: (x, y))
+    train_ds_s = train_ds.map(lambda x, y: (x, y))
     train_inputs = train_ds_s.map(lambda x, y: x)
     train_labels = train_ds_s.map(lambda x, y: y)
     y_pred = model.predict(train_inputs)

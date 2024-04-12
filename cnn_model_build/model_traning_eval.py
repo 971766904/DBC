@@ -18,6 +18,23 @@ from jddb.file_repo import FileRepo
 from util.parse_tfrecord_pxuvbasic import parse_tfrecord
 
 
+def fig_shot_predict(y_pred, file_repo, shot,predicted_disruption ):
+    true_disruption = 0 if file_repo.read_labels(shot)["IsDisrupt"] == False else 1
+    if not (true_disruption == predicted_disruption):
+        t_start = file_repo.read_labels(shot, ['StartTime'])
+        t = t_start['StartTime'] + np.arange(y_pred.shape[0]) * 0.001
+        plt.figure()
+        ax1 = plt.subplot(111)
+        # y axis limit in[0,1]
+        ax1.set_ylim(0, 1)
+        ax1.plot(t, y_pred, 'r')
+        # ax2 = ax1.twinx()
+        # ax2.plot(t, X[:, 21])
+        plt.title('true:{}'.format(true_disruption))
+        plt.savefig('./_temp_fig/{}.png'.format(shot))
+        plt.close()
+
+
 # %% define function to build model specific data
 
 def nn_data_build(shot_no, file_repo):
@@ -28,6 +45,7 @@ def nn_data_build(shot_no, file_repo):
     X = {"input_1": np.transpose(X, (0, 2, 1))}  # reshaping from (None, 71, 32) to (None, 32, 71)
     return X
 
+
 def simple_nn_data_build(shot_no, file_repo):
     shot_no = int(shot_no)
     file_path = file_repo.get_file(shot_no)
@@ -35,10 +53,11 @@ def simple_nn_data_build(shot_no, file_repo):
     X = test_data.get('/data/basic')[()]
     return X
 
+
 # inference on shot
 
 
-def get_shot_result(y_red, threshold_sample, start_time):
+def get_shot_result(y_pred, threshold_sample, start_time):
     """
     get shot result by a threshold and compare to start time
     Args:
@@ -67,13 +86,13 @@ def get_shot_result(y_red, threshold_sample, start_time):
 
 # %% init FileRepo
 if __name__ == '__main__':
-    #%%
+    # %%
     # load file repo
     dbc_data_dir = '..//..//file_repo//data_file//processed_data_cnn//all_mix//'
     test_file_repo = FileRepo(
         os.path.join(dbc_data_dir, 'label_test//$shot_2$00//'))
 
-    #%%
+    # %%
     # load model
     model = tf.keras.models.load_model('./best_model_all_mix')  # the model should be mypool one
     test_shot_list = test_file_repo.get_all_shots()
@@ -99,10 +118,11 @@ if __name__ == '__main__':
         time_dict = test_file_repo.read_labels(shot, ['StartTime'])
         pred_disruption, predicted_disruption_time = get_shot_result(
             y_pred, .5, 0.182)  # get shot result by a threshold
+        fig_shot_predict(y_pred, test_file_repo, shot, pred_disruption)
         shots_pred_disrurption.append(pred_disruption)
         shots_pred_disruption_time.append(predicted_disruption_time)
 
-    #%%
+    # %%
     # add predictions for each shot to the result object
     test_result.add(test_shot_list, shots_pred_disrurption,
                     shots_pred_disruption_time)
