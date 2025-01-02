@@ -69,4 +69,4 @@ if __name__ == '__main__':
             if sample_counter % batch_size == 0:
                 writer.close()
                 file_counter += 1
-                writer = create_tfrecord_writer(file_counter)
+                writer = create_tfrecord_writer(file_counter, output_dir)

@@ -1,62 +1,51 @@
-# %%
-# this examlpe shows how to build a ML mode to predict disruption and
-# evaluate its performance using jddb
-# this depands on the output FileRepo of basic_data_processing.py
+#!/usr/bin/env python
+# encoding: utf-8
+'''
+# @Time    : 2024/11/27 13:44
+# @Author  : zhongyu
+# @Site    : 
+# @File    : model_eval.py
 
-# %%
+'''
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import tensorflow as tf
-import h5py
-from cnn import CNN
+import lightgbm as lgb
 import pandas as pd
 import os
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
 from jddb.performance import Result
 from jddb.performance import Report
 from jddb.file_repo import FileRepo
-from util.parse_tfrecord_pxuvbasic import parse_tfrecord
 
+def matrix_build(shot_list, file_repo, tags,tag_length,label):
+    """
+    get x and y from file_repo with shots and tags
+    Args:
+        shot_list: shots for data matrix
+        file_repo:
+        tags: tags from file_repo
 
-def fig_shot_predict(y_pred, file_repo, shot, predicted_disruption):
-    true_disruption = 0 if file_repo.read_labels(shot)["IsDisrupt"] == False else 1
+    Returns: matrix of x and y
 
-    if not (true_disruption == predicted_disruption):
-        t_start = file_repo.read_labels(shot, ['StartTime'])
-        t = t_start['StartTime'] + np.arange(y_pred.shape[0]) * 0.001
-        plt.figure()
-        ax1 = plt.subplot(111)
-        # y axis limit in[0,1]
-        ax1.set_ylim(0, 1)
-        ax1.plot(t, y_pred, 'r')
-        # ax2 = ax1.twinx()
-        # ax2.plot(t, X[:, 21])
-        plt.title('true:{}'.format(true_disruption))
-        plt.savefig('./_temp_fig/{}.png'.format(shot))
-        plt.close()
-
-
-# %% define function to build model specific data
-
-def nn_data_build(shot_no, file_repo):
-    shot_no = int(shot_no)
-    file_path = file_repo.get_file(shot_no)
-    test_data = h5py.File(file_path, 'r')
-    X = test_data.get('/data/stacked_data')[()]
-    X = {"input_1": np.transpose(X, (0, 2, 1))}  # reshaping from (None, 71, 32) to (None, 32, 71)
-    return X
-
-
-def simple_nn_data_build(shot_no, file_repo):
-    shot_no = int(shot_no)
-    file_path = file_repo.get_file(shot_no)
-    test_data = h5py.File(file_path, 'r')
-    X = test_data.get('/data/basic')[()]
-    return X
-
-
-# inference on shot
-
+    """
+    x_set = np.empty([0, tag_length])
+    y_set = np.empty([0])
+    for shot in shot_list:
+        shot = int(shot)
+        try:
+            x_data = file_repo.read_data(shot, tags)
+            y_data = file_repo.read_data(shot, label)
+        except:
+            print(f'error shot: {shot}')
+            continue
+        _temp_value = list(x_data.values())
+        _ndarray = np.array(_temp_value).reshape(-1, tag_length)
+        res_y = np.array(list(y_data.values())).T.flatten()
+        x_set = np.append(x_set, _ndarray, axis=0)
+        y_set = np.append(y_set, res_y, axis=0)
+    return x_set, y_set
 
 def get_shot_result(y_pred, threshold_sample, start_time):
     """
@@ -85,31 +74,37 @@ def get_shot_result(y_pred, threshold_sample, start_time):
     return predicted_dis, predicted_dis_time
 
 
-# %% init FileRepo
 if __name__ == '__main__':
     # %%
-    # load file repo
-    dbc_data_dir = '..//..//file_repo//data_file//processed_data_cnn//all_mix//'
-    test_file_repo = FileRepo(
-        os.path.join(dbc_data_dir, 'label_test//$shot_2$00//'))
+    # init FileRepo
+    dbc_data_dir = '..//..//file_repo//data_file//processed_lgbm'
+    test_file_repo = FileRepo(os.path.join(dbc_data_dir, 'label_test//$shot_2$00//'))
+    test_file_repo = FileRepo(os.path.join(dbc_data_dir, 'label_test_all//$shot_2$00//'))
 
-    # %%
-    # load model
-    model = tf.keras.models.load_model('./best_model_all_mix')  # the model should be mypool one
-    test_shot_list = test_file_repo.get_all_shots()
-    # X = nn_data_build(56609, test_file_repo)
-    # # get sample result from LightGBM
-    # y_pred = model.predict(X)
+    #load test shots
+    shots_5 = np.load('..//..//file_repo//info//ip_info//ip_5.npy')
+    shots_4 = np.load('..//..//file_repo//info//ip_info//ip_4.npy')
+    shots_random_test = np.load('..//..//file_repo//info//ip_info//randm_test_shots.npy')
+    # eliminate the shots in test_shots.npy from shots_5
+    shots_test_wrong = np.load('..//..//file_repo//info//ip_info//chosen_shots_undis.npy')
+    shots_5 = np.setdiff1d(shots_5, shots_test_wrong)
+    test_shots = shots_5
+    test_shots = np.load('..//..//file_repo//info//split_dataset_info//shots5_reserve.npy')
 
-    # create an empty result object
-    test_result = Result(r'.//_temp_test//test_result.csv')
+    #load model
+    model = lgb.Booster(model_file='model//lgbm_model_added_1.txt')
+
+    # init result
+    test_result = Result(r'_temp_test\test_result.csv')
     sample_result = dict()
-
-    # generate predictions for each shot
     shots_pred_disrurption = []  # shot predict result
+    shots_true_disruption = []  # shot true disruption label
     shots_pred_disruption_time = []  # shot predict time
-    for shot in test_shot_list:
-        X = nn_data_build(shot, test_file_repo)
+
+    #%%
+    #get result from model inference
+    for shot in test_shots:
+        X,_ = matrix_build([shot], test_file_repo, ['stacked_data'],71,['label'])
         # get sample result from model
         y_pred = model.predict(X)
         sample_result.setdefault(shot, []).append(
@@ -123,9 +118,9 @@ if __name__ == '__main__':
         shots_pred_disrurption.append(pred_disruption)
         shots_pred_disruption_time.append(predicted_disruption_time)
 
-    # %%
-    # add predictions for each shot to the result object
-    test_result.add(test_shot_list, shots_pred_disrurption,
+        # %%
+        # add predictions for each shot to the result object
+    test_result.add(test_shots, shots_pred_disrurption,
                     shots_pred_disruption_time)
     # get true disruption label and time
     test_result.get_all_truth_from_file_repo(
@@ -159,7 +154,7 @@ if __name__ == '__main__':
     for threshold in thresholds:
         shots_pred_disrurption = []
         shots_pred_disruption_time = []
-        for shot in test_shot_list:
+        for shot in test_shots:
             y_pred = sample_result[shot][0]
             time_dict = test_file_repo.read_attributes(shot, 'label', ['StartTime'])
             predicted_disruption, predicted_disruption_time = get_shot_result(
@@ -170,7 +165,7 @@ if __name__ == '__main__':
         temp_test_result = Result('./_temp_test/temp_result.csv')
         temp_test_result.lucky_guess_threshold = 2
         temp_test_result.tardy_alarm_threshold = .001
-        temp_test_result.add(test_shot_list, shots_pred_disrurption,
+        temp_test_result.add(test_shots, shots_pred_disrurption,
                              shots_pred_disruption_time)
         temp_test_result.get_all_truth_from_file_repo(test_file_repo)
 

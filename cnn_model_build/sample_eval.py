@@ -51,9 +51,9 @@ def matrix_build(shot_list, file_repo):
     return x_set, y_set
 
 
-def nn_data_build(shot_list, file_repo):
-    data_list = []
-    label_list = []
+def nn_data_shot_build(shot_list, file_repo):
+    data_array = np.empty([0, 32, 71])
+    label_array = np.empty([0])
 
     for shot in shot_list:
         file_path = file_repo.get_file(shot)
@@ -63,11 +63,10 @@ def nn_data_build(shot_list, file_repo):
             data = {"input_1": np.transpose(data, (0, 2, 1)),
                     "labels": labels}  # reshaping from (None, 71, 32) to (None, 32, 71)
 
-        data_list.append(data["input_1"])
-        label_list.append(data["labels"])
+        data_array = np.append(data_array, np.squeeze(data["input_1"]), axis=0)
+        label_array = np.append(label_array, np.squeeze(data["labels"]), axis=0)
 
-    return data_list, label_list
-
+    return data_array, label_array
 
 
 if __name__ == '__main__':
@@ -85,7 +84,7 @@ if __name__ == '__main__':
     # %%
     # load model
     X = {"input_1": X_test}
-    model = tf.keras.models.load_model('./et1_cnn_tfrecord')  # the model should be mypool one
+    model = tf.keras.models.load_model('./best_model_all_mix_1_tcn')  # the model should be mypool one
     y_pred = model.predict(X)
 
     # %%
@@ -96,16 +95,22 @@ if __name__ == '__main__':
     y_test = np.squeeze(y_test)
     cm = tf.math.confusion_matrix(y_test, y_pred)
     print(cm)
+    # %%
+    # evaluate the result with auc
+    from sklearn.metrics import roc_auc_score
+
+    auc = roc_auc_score(y_test, y_pred)
+    print(f"auc is {auc}")
+
     # explain the confusion matrix of tf.math.confusion_matrix
     # [[TN FP]
     #  [FN TP]]
 
-    #%%
-    # # calculate that how long do it take when nn_data_build is called
-    # import time
-    # t_start = time.time()
-    # data_list, label_list = nn_data_build(test_shot_list, test_file_repo)
-    # t_end = time.time()
-    # print(f"nn_data_build takes {t_end - t_start} seconds")
+    # %%
+    # calculate that how long do it take when nn_data_build is called
+    import time
 
-
+    t_start = time.time()
+    data_list, label_list = nn_data_shot_build(test_shot_list, test_file_repo)
+    t_end = time.time()
+    print(f"nn_data_build takes {t_end - t_start} seconds")

@@ -12,6 +12,7 @@ import numpy as np
 from keras import layers
 from tensorflow import keras
 from tensorflow.keras.layers import Dense, TimeDistributed
+from tcn import TCN
 
 
 class CNN(tf.keras.Model):
@@ -81,6 +82,7 @@ class CNN1(tf.keras.Model):
         )
 
         self.pool1 = tf.keras.layers.MaxPool1D(pool_size=2, strides=2)
+        # self.pool1 = tf.keras.layers.TimeDistributed(tf.keras.layers.GlobalAveragePooling1D())
         self.flatten = tf.keras.layers.Flatten()
         self.dense1 = tf.keras.layers.Dense(units=128, activation=tf.nn.relu)
         self.drop = tf.keras.layers.Dropout(0.5)
@@ -104,4 +106,42 @@ class CNN1(tf.keras.Model):
         x = self.drop(x)
         output = self.dense3(x)  # [batch_size, 1]
 
+        return output
+
+
+class TCNModel(tf.keras.Model):
+    """
+    Temporal Convolutional Network (TCN) model for binary classification.
+    """
+
+    def __init__(self, nb_filters=64, kernel_size=3, dropout_rate=0.5):
+        """
+        Initialize the TCN model.
+
+        Args:
+            nb_filters (int): The number of filters to use in the TCN layer.
+            kernel_size (int): The size of the kernel to use in the TCN layer.
+            dropout_rate (float): The dropout rate.
+        """
+        super(TCNModel, self).__init__()
+        self.tcn1 = TCN(nb_filters=nb_filters, kernel_size=kernel_size, return_sequences=False)
+        self.dense1 = tf.keras.layers.Dense(units=128, activation=tf.nn.relu)
+        self.drop = tf.keras.layers.Dropout(dropout_rate)
+        self.dense2 = tf.keras.layers.Dense(1, activation='sigmoid')
+
+    def call(self, inputs):
+        """
+        Forward pass for the model.
+
+        Args:
+            inputs (Tensor): The input tensor.
+
+        Returns:
+            Tensor: The output tensor.
+        """
+        conv_inputs = inputs["input_1"]
+        x = self.tcn1(conv_inputs)
+        x = self.dense1(x)
+        x = self.drop(x)
+        output = self.dense2(x)
         return output

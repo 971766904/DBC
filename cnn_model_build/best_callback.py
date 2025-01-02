@@ -11,7 +11,7 @@
 import tensorflow as tf
 from util.parse_tfrecord_pxuvbasic import parse_tfrecord
 from lstm import CNN_LSTM, ConvLSTM1d
-from cnn import CNN, CNN1
+from cnn import CNN, CNN1,TCNModel
 from keras.callbacks import EarlyStopping
 from tensorflow import keras
 import matplotlib.pyplot as plt
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     # load tfrecord
     BATCH_SIZE = 1024 * 2
     dbc_data_dir = '..//..//file_repo//data_file//processed_data_cnn//all_mix'
-    model_path = './best_model_all_mix'
+    model_path = './best_model_all_mix_tcn'
     train_files = tf.data.Dataset.list_files(
         os.path.join(dbc_data_dir, 'tfrecord/train/*.tfrecord'))
     val_files = tf.data.Dataset.list_files(
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     val_ds = val_ds.batch(BATCH_SIZE).prefetch(BATCH_SIZE).cache()
     # %%
     # training
-    model = CNN1()
+    model = TCNModel()
 
     from keras.callbacks import ModelCheckpoint
 
@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     model = tf.keras.models.load_model(model_path)
 
-    train_ds_s = train_ds.map(lambda x, y: (x, y))
+    train_ds_s = val_ds.map(lambda x, y: (x, y))
     train_inputs = train_ds_s.map(lambda x, y: x)
     train_labels = train_ds_s.map(lambda x, y: y)
     y_pred = model.predict(train_inputs)

@@ -52,15 +52,17 @@ if __name__ == '__main__':
     cq_rate_min = dis_stat_info['CQ_rate'][3]
     cq_rate_std = dis_stat_info['CQ_rate'][2]
     shots_info['dbc'] = shots_info.apply(
-        lambda row: ((row['ip'] - ip_min) / ip_std + (row['bt'] - bt_min) / bt_std
-                     + (row['p'] - p_min) / p_std + 3*(row['CQ_rate'] - cq_rate_min) / cq_rate_std)
-        if row['IsDisrupt'] else ((row['ip'] - ip_min) / ip_std + (row['bt'] - bt_min) / bt_std
-                                  + (row['p'] - p_min) / p_std), axis=1)
+        lambda row: (((row['ip'] - ip_min) / ip_std) ** 2 + ((row['bt'] - bt_min) / bt_std) ** 2
+                     + ((row['p'] - p_min) / p_std) ** 2 + ((row['CQ_rate'] - cq_rate_min) / cq_rate_std) ** 6)
+        if row['IsDisrupt'] else (((row['ip'] - ip_min) / ip_std) ** 2 + ((row['bt'] - bt_min) / bt_std) ** 2
+                                  + ((row['p'] - p_min) / p_std) ** 2) * 0.21, axis=1)
 
     # shots_info.to_csv('..//file_repo//info//std_info//dbc_shots_info.csv', index=False)
 
     # %%
     #
+    shots_info['IsDisrupt'] = shots_info['IsDisrupt'].map({'True': True, '1': True, 'False': False})
+    shots_info.to_csv('..//file_repo//info//std_info//power_dbc_shots_info.csv', index=False)
     for index, row in shots_info.iterrows():
         shot = row['shot']
         sawtooth = 0
@@ -70,3 +72,24 @@ if __name__ == '__main__':
         shots_efit = shots_efit.append({'shot': shot, 'sawtooth': sawtooth, 'ip': ip, 'bt': bt,
                                         'efit time': efit_time}, ignore_index=True)
     # shots_efit.to_csv('..//file_repo//info//std_info//efit_shots_info.csv', index=False)
+
+    # %%
+    # process shots_info
+    # it return keyerror:'ip'
+    # show me why
+
+    shots_info['n_ip'] = (shots_info['ip'] - ip_min) / ip_std
+    shots_info['n_bt'] = (shots_info['bt'] - bt_min) / bt_std
+    shots_info['n_p'] = (shots_info['p'] - p_min) / p_std
+    # describe the shots_info
+    #%%
+    shots_info_des=shots_info.describe()
+    #%%
+    # plot the distribution of shots_info
+    plt.figure()
+    plt.hist(shots_info['n_ip'], bins=100, alpha=0.5, label='ip')
+    plt.hist(shots_info['n_bt'], bins=100, alpha=0.5, label='bt')
+    plt.hist(shots_info['n_p'], bins=100, alpha=0.5, label='p')
+    plt.legend()
+    plt.show()
+

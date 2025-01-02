@@ -1,9 +1,12 @@
-# %%
-# this examlpe shows how to build a ML mode to predict disruption and
-# evaluate its performance using jddb
-# this depands on the output FileRepo of basic_data_processing.py
+#!/usr/bin/env python
+# encoding: utf-8
+'''
+# @Time    : 2024/4/13 16:59
+# @Author  : zhongyu
+# @Site    : 
+# @File    : get_wrong_predict_shot.py
 
-# %%
+'''
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -34,6 +37,8 @@ def fig_shot_predict(y_pred, file_repo, shot, predicted_disruption):
         plt.title('true:{}'.format(true_disruption))
         plt.savefig('./_temp_fig/{}.png'.format(shot))
         plt.close()
+        return shot
+    return None
 
 
 # %% define function to build model specific data
@@ -92,90 +97,30 @@ if __name__ == '__main__':
     dbc_data_dir = '..//..//file_repo//data_file//processed_data_cnn//all_mix//'
     test_file_repo = FileRepo(
         os.path.join(dbc_data_dir, 'label_test//$shot_2$00//'))
+    wrong_shot_path = './wrong_predict_shots.npy'
 
     # %%
     # load model
     model = tf.keras.models.load_model('./best_model_all_mix')  # the model should be mypool one
     test_shot_list = test_file_repo.get_all_shots()
-    # X = nn_data_build(56609, test_file_repo)
-    # # get sample result from LightGBM
-    # y_pred = model.predict(X)
-
-    # create an empty result object
-    test_result = Result(r'.//_temp_test//test_result.csv')
-    sample_result = dict()
 
     # generate predictions for each shot
     shots_pred_disrurption = []  # shot predict result
     shots_pred_disruption_time = []  # shot predict time
+    wrong_predict_shots = []
     for shot in test_shot_list:
         X = nn_data_build(shot, test_file_repo)
         # get sample result from model
         y_pred = model.predict(X)
-        sample_result.setdefault(shot, []).append(
-            y_pred)  # save sample results to a dict
 
         # using the sample reulst to predict disruption on shot, and save result to result file using result module.
-        time_dict = test_file_repo.read_attributes(shot, 'label', ['StartTime'])
+        time_dict = test_file_repo.read_labels(shot, ['StartTime'])
         pred_disruption, predicted_disruption_time = get_shot_result(
-            y_pred, .5, time_dict['StartTime'])  # get shot result by a threshold
-        # fig_shot_predict(y_pred, test_file_repo, shot, pred_disruption)
+            y_pred, .5, 0.182)  # get shot result by a threshold
+        predict = fig_shot_predict(y_pred, test_file_repo, shot, pred_disruption)
+        if predict:
+            wrong_predict_shots.append(predict)
         shots_pred_disrurption.append(pred_disruption)
         shots_pred_disruption_time.append(predicted_disruption_time)
-
-    # %%
-    # add predictions for each shot to the result object
-    test_result.add(test_shot_list, shots_pred_disrurption,
-                    shots_pred_disruption_time)
-    # get true disruption label and time
-    test_result.get_all_truth_from_file_repo(
-        test_file_repo)
-
-    test_result.lucky_guess_threshold = 2
-    test_result.tardy_alarm_threshold = .005
-    test_result.calc_metrics()
-    test_result.save()
-    print("precision = " + str(test_result.precision))
-    print("tpr = " + str(test_result.tpr))
-
-    # %% plot some of the result: confusion matrix, warning time histogram
-    # and accumulate warning time.
-    sns.heatmap(test_result.confusion_matrix, annot=True, cmap="Blues", fmt='.0f')
-    plt.xlabel("Predicted labels")
-    plt.ylabel("True labels")
-    plt.title("Confusion Matrix")
-    # plt.savefig(os.path.join('..//_temp_test//', 'Confusion Matrix.png'), dpi=300)
-    plt.show()
-
-    test_result.plot_warning_time_histogram(
-        [-1, .002, .01, .05, .1, .3], './/_temp_test//')
-    test_result.plot_accumulate_warning_time('.//_temp_test//')
-
-    # %% scan the threshold for shot prediction to get
-    # many results, and add them to a report
-    # simply change different disruptivity triggering level and logic, get many result.
-    test_report = Report('.//_temp_test//report.csv')
-    thresholds = np.linspace(0, 1, 50)
-    for threshold in thresholds:
-        shots_pred_disrurption = []
-        shots_pred_disruption_time = []
-        for shot in test_shot_list:
-            y_pred = sample_result[shot][0]
-            time_dict = test_file_repo.read_attributes(shot, 'label', ['StartTime'])
-            predicted_disruption, predicted_disruption_time = get_shot_result(
-                y_pred, threshold, time_dict['StartTime'])
-            shots_pred_disrurption.append(predicted_disruption)
-            shots_pred_disruption_time.append(predicted_disruption_time)
-        # i dont save so the file never get created
-        temp_test_result = Result('./_temp_test/temp_result.csv')
-        temp_test_result.lucky_guess_threshold = 2
-        temp_test_result.tardy_alarm_threshold = .001
-        temp_test_result.add(test_shot_list, shots_pred_disrurption,
-                             shots_pred_disruption_time)
-        temp_test_result.get_all_truth_from_file_repo(test_file_repo)
-
-        # add result to the report
-        test_report.add(temp_test_result, "thr=" + str(threshold))
-        test_report.save()
-    # plot all metrics with roc
-    test_report.plot_roc('./_temp_test/')
+    # save wrong predict shots
+    np.save(wrong_shot_path, wrong_predict_shots)
